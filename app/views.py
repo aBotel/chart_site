@@ -2,9 +2,9 @@ from flask import render_template, jsonify, make_response, request, abort
 from app import app
 
 data = {
-    'accel':{'data':[], 'description':"Accelerometer"},
+    'accel':{'data':[], 'description':"Accel"},
     'gyro':{'data':[], 'description':"Gyro"},
-    'magnet':{'data':[], 'description':"Magnetometer"}
+    'magnet':{'data':[], 'description':"Magnet"}
 }
 
 posts = [
@@ -29,17 +29,17 @@ def index():
                            posts=posts)
 
 
-@app.route('/motion/api/v1/list_accel',methods=['GET'])
+@app.route('/motion/api/v1/get_accel',methods=['GET'])
 def get_accel_list():
     #Return all the stored accelerometer JSON objects
     return jsonify(data.get('accel'))
 
-@app.route('/motion/api/v1/list_gyro',methods=['GET'])
+@app.route('/motion/api/v1/get_gyro',methods=['GET'])
 def get_gyro_magnet_list():
     #Return all the stored gyro JSON objects
     return jsonify(data.get('gyro'))
 
-@app.route('/motion/api/v1/list_magnet',methods=['GET'])
+@app.route('/motion/api/v1/get_magnet',methods=['GET'])
 def get_magnet_list():
     #Return all the stored magnetometer JSON objects
     return jsonify(data.get('magnet'))

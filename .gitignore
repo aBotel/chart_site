@@ -1,1 +1,1 @@
-venv_files/*
+venv_files/!(/.)*
