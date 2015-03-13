@@ -2,6 +2,7 @@
 /***************************
 * VARIABLES
 ****************************/
+var ajx_q_name = "theMasterQueue";
 
 /* Dimensions */
 var m = [20, 80, 30, 50];
@@ -310,6 +311,27 @@ function mockUpdateData()
     });
 }
 
+function testAjax(){
+    mock_accel_data = {x:1,y:2,z:3,t:4}
+    mock_gyro_data = {x:5,y:6,z:7,t:8}
+    mock_magnet_data = {x:9,y:10,z:11,t:12}
+
+    updateAccel(mock_accel_data)
+    updateGyro(mock_gyro_data)
+    updateMagnet(mock_magnet_data)
+
+    for (i=0;i<100;i++) {
+      updateAccel(mock_accel_data)
+      updateGyro(mock_gyro_data)
+      updateMagnet(mock_magnet_data)
+    }
+   
+    var acc = getAccel();
+    var gyro = getGyro();
+    var magnet = getMagnet();
+    //var all = getAll();
+}
+
 function getAccelData(){
   return td.accel.data
 }
@@ -328,21 +350,210 @@ function getPowerData(){
 
 /* MAIN */
 initData();
-initGraphs(graphs)
-updateGraphs(graphs)
+initGraphs(graphs);
+updateGraphs(graphs);
+testAjax();
 
-function getContacts () {
+/*************************
+* AJAX
+**************************/
 
-     jQuery.ajax({
-         type: "GET",
-         url: "http://localhost:5000/Contacts.svc/GetAll",
+function startService() {
+  jQuery.ajax({
+         type: "POST",
+         url: "http://localhost:5000/motion/api/v1/start",
          contentType: "application/json; charset=utf-8",
+         data: JSON.stringify({val:1}),
          dataType: "json",
          success: function (data, status, jqXHR) {
-             // do something
+             console.log("Starting JSON service")
          },
-
+     
          error: function (jqXHR, status) {
              // error handler
-         }
-});
+            console.log("Error in updateMagnet!")
+         }     
+     });     
+}
+
+function stopService() {
+  jQuery.ajax({
+         type: "POSTT",
+         url: "http://localhost:5000/motion/api/v1/stop",
+         contentType: "application/json; charset=utf-8",
+         data: JSON.stringify({val:0}),
+         dataType: "json",
+         success: function (data, status, jqXHR) {
+             console.log("Stopping JSON service")
+         },
+     
+         error: function (jqXHR, status) {
+             // error handler
+            console.log("Error in updateMagnet!")
+         }     
+     });     
+}
+
+/* AJAX Calls */
+function getAccel () {
+    var result;
+    $.ajax({
+      type: "GET",
+      url: "http://localhost:5000/motion/api/v1/accel",
+      contentType: "application/json; charset=utf-8",
+      dataType: "json",
+      async:false,
+      success: function (data, status, jqXHR) {
+        console.log("Getting accel info...")
+        result = data
+        console.log("Got accel info: "+data.toString())
+      },
+
+      error: function (jqXHR, status) {
+        // error handler
+        console.log("Error in getAccel!")
+      }
+    });
+  return result
+}
+
+function getGyro () {
+    var result;
+    $.ajax({
+      type: "GET",
+      url: "http://localhost:5000/motion/api/v1/gyro",
+      contentType: "application/json; charset=utf-8",
+      dataType: "json",
+      async:false,
+      success: function (data, status, jqXHR) {
+        console.log("Getting gyro info...")
+        result = data
+        console.log("Got gyro info: "+data.toString())
+      },
+
+      error: function (jqXHR, status) {
+        // error handler
+        console.log("Error in getGyro!")
+      }
+    });
+  return result
+}
+
+
+function getMagnet() {
+    var result;
+    $.ajax({
+      type: "GET",
+      url: "http://localhost:5000/motion/api/v1/magnet",
+      contentType: "application/json; charset=utf-8",
+      dataType: "json",
+      async:false,
+      success: function (data, status, jqXHR) {
+        result = data
+        console.log("Got magnetometer info: "+data.toString())
+      },
+
+      error: function (jqXHR, status) {
+        // error handler
+        console.log("Error in getMagnet!")
+      }
+    });
+  return result
+}
+
+function getAllData () {
+    $.ajax({
+      type: "GET",
+      url: "http://localhost:5000/motion/api/v1/all",
+      contentType: "application/json; charset=utf-8",
+      dataType: "json",
+      async:false,
+      success: function (data, status, jqXHR) {
+        result = data
+        console.log("Got all_data info: "+data.toString())
+      },
+
+      error: function (jqXHR, status) {
+          // error handler
+          console.log("Error in getData!")
+      }
+    });
+}
+
+/* AJAX Puts */
+
+
+function updateAccel (accelData) {
+     $.ajaxq(ajx_q_name,{
+         type: "PUT",
+         url: "http://localhost:5000/motion/api/v1/accel",
+         contentType: "application/json; charset=utf-8",
+         data: JSON.stringify(accelData),
+         dataType: "json",
+         async:false,
+         success: function (data, status, jqXHR) {
+             console.log("Putting data to accel!")
+         },
+     
+         error: function (jqXHR, status) {
+             // error handler
+            console.log("Error in updateAccel!")
+         }     
+     });     
+}
+
+function updateGyro (gyroData) {
+     $.ajaxq(ajx_q_name,{
+         type: "PUT",
+         url: "http://localhost:5000/motion/api/v1/gyro",
+         contentType: "application/json; charset=utf-8",
+         data: JSON.stringify(gyroData),
+         dataType: "json",
+         async:false,
+         success: function (data, status, jqXHR) {
+             console.log("Putting data to gyro!")
+         },
+     
+         error: function (jqXHR, status) {
+             // error handler
+            console.log("Error in updateGyro!")
+         }     
+     });     
+}
+
+function updateMagnet (magnetData) {
+     $.ajaxq(ajx_q_name,{
+         type: "PUT",
+         url: "http://localhost:5000/motion/api/v1/magnet",
+         contentType: "application/json; charset=utf-8",
+         data: JSON.stringify(magnetData),
+         dataType: "json",
+         async:false,
+         success: function (data, status, jqXHR) {
+             console.log("Putting data to magnet!")
+         },
+     
+         error: function (jqXHR, status) {
+             // error handler
+            console.log("Error in updateMagnet!")
+         }     
+     });     
+}
+
+function updateAll (data) {
+     jQuery.ajax({
+         type: "PUT",
+         url: "http://localhost:5000/motion/api/v1/all",
+         contentType: "application/json; charset=utf-8",
+         data: JSON.stringify(data),
+         dataType: "json",
+         success: function (data, status, jqXHR) {
+             console.log("Putting data to all!")
+         },
+     
+         error: function (jqXHR, status) {
+             // error handler
+            console.log("Error in updateAll!")
+         }     
+     });     
+}
