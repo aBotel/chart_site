@@ -3,6 +3,8 @@
 * VARIABLES
 ****************************/
 var ajx_q_name = "theMasterQueue";
+var base_url = "http://localhost:5000"
+var updates = 0
 
 /* Dimensions */
 var m = [20, 80, 30, 50];
@@ -84,28 +86,26 @@ var color = d3.scale.category10();
 * FUNCTIONS
 ****************************/
 function initData(){
-  var random_data = {"x":[],"y":[],"z":[],"t":[]};
-  for (i = 0; i<200; i++)
-  {
-    x = (h - 350)+(i/5);
-    y = (h - 250)+(i/5);
-    z = (h - 150)+(i/5);
-    t = (h - 50)+(i/5);
-    random_data.x.push(x)
-    random_data.y.push(y)
-    random_data.z.push(z)
-    random_data.t.push(t)
-  }
-
-  td["accel"].data = random_data
-  td["gyro"].data = random_data
-  td["magnet"].data = random_data
-  td["power"].data = random_data
-
   // For each key in the td dictionary, pull out array.
   var tdValues = Object.keys(td).map(function(key){
     return td[key];
   });
+
+  for (j = 0; j<graphs.length; j++)
+  {
+    tdValues[j].data = {"x":[],"y":[],"z":[],"t":[]}
+    for (i = 0; i<200; i++)
+    {
+      x = (h - 350)+(i/5);
+      y = (h - 250)+(i/5);
+      z = (h - 150)+(i/5);
+      t = (h - 50)+(i/5);
+      tdValues[j].data.x.push(x)
+      tdValues[j].data.y.push(y)
+      tdValues[j].data.z.push(z)
+      tdValues[j].data.t.push(t)
+    }
+  }
 
   // For each key in the td dictionary compute maxValue and sum
   tdValues.forEach(function(s) {
@@ -119,19 +119,20 @@ function initData(){
   
   /* Create each x,y,z,t,maxvalue object. This is the data
   Stored in each graph */
-  var tmp = 0
+  var count = 0
   gs.each(function() {
     var e = d3.select(this);
     var cmp_obj_list = []
-    for(var key in tdValues[tmp].data) {
+    for(var key in tdValues[count].data) {
       var component = {}
-      component.values = tdValues[tmp].data[key];
-      component.maxValue = d3.max(tdValues[tmp].data[key], function(d) { return d; });
-      component.minValue = d3.min(tdValues[tmp].data[key], function(d) { return d; });
+      component.values = tdValues[count].data[key];
+      component.maxValue = d3.max(tdValues[count].data[key], function(d) { return d; });
+      component.minValue = d3.min(tdValues[count].data[key], function(d) { return d; });
       component.sum = d3.sum(component.values, function(d) { return d; });
-      component.descr = td[Object.keys(td)[tmp]].description +"_"+key.toString()
+      component.descr = td[Object.keys(td)[count]].description +"_"+key.toString()
       cmp_obj_list.push(component)
     }
+    /*Set the graph to hold cmp_obj_list. Each list has 4 component*/
     e.selectAll("g").data(cmp_obj_list)
     .enter()
     .append("g")
@@ -139,18 +140,18 @@ function initData(){
                 return "component"+i.toString()
               })
     .attr("class","component");
-    tmp++
+    count++
   });
 };
 
 function initGraphs(list_of_graphs) {
-  /* Loop over each svg => each graph*/
+  /* Loop over each svg => each graph */
   for(i in list_of_graphs) {
     var svg = list_of_graphs[i]
-    var g = svg.selectAll(".component")
+    var comp = svg.selectAll(".component")
     //.attr("transform", function(d, i) { return "translate(0," + (i * h / 4 + 10) + ")"; });
     
-    data = g.data()
+    data = comp.data()
     /*New graph variables*/
     var borderPath = d3.select(svg.node().parentNode).append("rect")
         .attr("x", 0)
@@ -189,7 +190,7 @@ function initGraphs(list_of_graphs) {
         .style("text-anchor", "end")
         .text(" X,Y,Z,t for "+data.description)
         .attr("class","graph_font");
-  } //graphs
+  } //loop over graphs
 }; //drawLineGraph
 
 function hideGraphs()
@@ -202,36 +203,37 @@ function updateGraphs(list_of_graphs)
   for(i in list_of_graphs) {
     if(graph_enable[i] == true) {
       var svg = list_of_graphs[i]
-      var g = svg.selectAll(".component")
+      var comp = svg.selectAll(".component")
       var component_cnt = 1
-       /*Dictionary of x,y,z,t data*/
-      data = g.data()
+
+      /*Dictionary of x,y,z,t data*/
+      data = comp.data()
       x_domain_min = 0
       x_domain_max = d3.min(data, function(d){return d.values.length})
-      y_domain_min = d3.min(data, function(d){return 0})
+      y_domain_min = d3.min(data, function(d){return Math.min(d.minValue,0)})
       y_domain_max = d3.max(data, function(d){return d.maxValue})
       
       //if(x_domain_min < x_axes_min[i] || x_domain_max> x_axes_max[i])
-        x_scales[i].domain([x_domain_min,x_domain_max]);
+      x_scales[i].domain([x_domain_min,x_domain_max]);
       //if(y_domain_min < y_axes_min[i] || y_domain_max> y_axes_max[i])
-        y_scales[i].domain([y_domain_min, y_domain_max]);
+      y_scales[i].domain([y_domain_min, y_domain_max]);
 
       y_interpolation = d3.svg.line()
                             .interpolate("basis")
                             .x(function(d,q) { return x_scales[i](q); })
                             .y(function(d,q) { return y_scales[i](d); })
       /* Plot each of the components on the graph */
-      data.forEach(function(component){
-        var city = svg.select("g:nth-child("+component_cnt+")");
-        city.data(component) //setthe data of the nth child
+      data.forEach(function(cmp_data){
+        var component = svg.select("g:nth-child("+component_cnt+")");
+        component.datum(cmp_data) //set the data of the nth child
 
-        console.log(city.data()[0].descr)
-        city.append("path")
+        console.log(component.data()[0].descr)
+        component.append("path")
             .attr("class", "line")
             .attr("d", function(d,i) { return y_interpolation(d.values); })
             .style("stroke", function(d,i) { return color(d.descr+component_cnt.toString()); });
 
-        city.append("text")
+        component.append("text")
             .datum(function(d) { return { name:d.descr, vals:{ex:d.values.length-1, 
                                 why:d.values[d.values.length - 1]} }; })
             .attr("x", 3)
@@ -247,14 +249,17 @@ function updateGraphs(list_of_graphs)
   }//graphs
 }
 
-function updateData()
+
+function mockUpdateData()
 {
+  var random_data = {"x":[],"y":[],"z":[],"t":[]};
+
   for (i = 0; i<200; i++)
   {
-    x = (h - 350)+(i/5);
-    y = (h - 250)+(i/5);
-    z = (h - 150)+(i/5);
-    t = (h - 50)+(i/5);
+    x = (h - 350)+(i/10);
+    y = (h - 250)+(i/10);
+    z = (h - 150)+(i/10);
+    t = (h - 50)+(i/10);
     random_data.x.push(x)
     random_data.y.push(y)
     random_data.z.push(z)
@@ -277,39 +282,31 @@ function updateData()
     s.minValue = d3.min(s["data"].t, function(d) { return d; });
     s.sum = d3.sum(s["data"].x, function(d) { return d; });
   });
-}
 
-function mockUpdateData()
-{
-  for (i = 0; i<200; i++)
-    {
-      x = (h - 350)+(i/5);
-      y = (h - 250)+(i/5);
-      z = (h - 150)+(i/5);
-      t = (h - 50)+(i/5);
-      random_data.x.push(x)
-      random_data.y.push(y)
-      random_data.z.push(z)
-      random_data.t.push(t)
+  //d3.select("body").selectAll("div").append("p").text("This has been appended")
+  var gphs = d3.select("body").selectAll("svg").selectAll(".graph"); //graph
+  
+  /* Create each x,y,z,t,maxvalue object. This is the data
+  Stored in each graph */
+  var tmp = 0
+  gphs.each(function() {
+    var e = d3.select(this);  // select a graph
+    var cmp_obj_list = []
+    //Iterate over components, accel, gyro, magnet, power
+    for(var key in tdValues[tmp].data) {
+      var component = {}
+      component.values = tdValues[tmp].data[key];
+      component.maxValue = d3.max(tdValues[tmp].data[key], function(d) { return d; });
+      component.minValue = d3.min(tdValues[tmp].data[key], function(d) { return d; });
+      component.sum = d3.sum(component.values, function(d) { return d; });
+      component.descr = td[Object.keys(td)[tmp]].description +"_"+key.toString()
+      cmp_obj_list.push(component)
     }
+    e.selectAll(".component").data(cmp_obj_list).enter().selectAll("path").data(function(d){return d})
 
-    td["accel"].data = random_data
-    td["gyro"].data = random_data
-    td["magnet"].data = random_data
-    td["power"].data = random_data
-
-    // For each key in the td dictionary, pull out array.
-    var tdValues = Object.keys(td).map(function(key){
-      return td[key];
-    });
-
-    // For each key in the td dictionary comput maxValue and sum
-    tdValues.forEach(function(s) {
-      s.maxValue = d3.max(s["data"].x, function(d) { return d; });
-      s.minValue = d3.min(s["data"].t, function(d) { return d; });
-      s.sum = d3.sum(s["data"].x, function(d) { return d; });
-    });
+  });
 }
+
 
 function testAjax(){
     mock_accel_data = {x:1,y:2,z:3,t:4}
@@ -352,7 +349,8 @@ function getPowerData(){
 initData();
 initGraphs(graphs);
 updateGraphs(graphs);
-testAjax();
+//mockUpdateData();
+//testAjax();
 
 /*************************
 * AJAX
@@ -361,7 +359,7 @@ testAjax();
 function startService() {
   jQuery.ajax({
          type: "POST",
-         url: "http://localhost:5000/motion/api/v1/start",
+         url: base_url+"/motion/api/v1/start",
          contentType: "application/json; charset=utf-8",
          data: JSON.stringify({val:1}),
          dataType: "json",
@@ -379,7 +377,7 @@ function startService() {
 function stopService() {
   jQuery.ajax({
          type: "POSTT",
-         url: "http://localhost:5000/motion/api/v1/stop",
+         url: base_url+"/motion/api/v1/stop",
          contentType: "application/json; charset=utf-8",
          data: JSON.stringify({val:0}),
          dataType: "json",
@@ -399,7 +397,7 @@ function getAccel () {
     var result;
     $.ajax({
       type: "GET",
-      url: "http://localhost:5000/motion/api/v1/accel",
+      url: base_url+"/motion/api/v1/accel",
       contentType: "application/json; charset=utf-8",
       dataType: "json",
       async:false,
@@ -421,7 +419,7 @@ function getGyro () {
     var result;
     $.ajax({
       type: "GET",
-      url: "http://localhost:5000/motion/api/v1/gyro",
+      url: base_url+"/motion/api/v1/gyro",
       contentType: "application/json; charset=utf-8",
       dataType: "json",
       async:false,
@@ -444,7 +442,7 @@ function getMagnet() {
     var result;
     $.ajax({
       type: "GET",
-      url: "http://localhost:5000/motion/api/v1/magnet",
+      url: base_url+"/motion/api/v1/magnet",
       contentType: "application/json; charset=utf-8",
       dataType: "json",
       async:false,
@@ -464,7 +462,7 @@ function getMagnet() {
 function getAllData () {
     $.ajax({
       type: "GET",
-      url: "http://localhost:5000/motion/api/v1/all",
+      url: base_url+"/motion/api/v1/all",
       contentType: "application/json; charset=utf-8",
       dataType: "json",
       async:false,
@@ -486,7 +484,7 @@ function getAllData () {
 function updateAccel (accelData) {
      $.ajaxq(ajx_q_name,{
          type: "PUT",
-         url: "http://localhost:5000/motion/api/v1/accel",
+         url: base_url+"/motion/api/v1/accel",
          contentType: "application/json; charset=utf-8",
          data: JSON.stringify(accelData),
          dataType: "json",
@@ -505,7 +503,7 @@ function updateAccel (accelData) {
 function updateGyro (gyroData) {
      $.ajaxq(ajx_q_name,{
          type: "PUT",
-         url: "http://localhost:5000/motion/api/v1/gyro",
+         url: base_url+"/motion/api/v1/gyro",
          contentType: "application/json; charset=utf-8",
          data: JSON.stringify(gyroData),
          dataType: "json",
@@ -524,7 +522,7 @@ function updateGyro (gyroData) {
 function updateMagnet (magnetData) {
      $.ajaxq(ajx_q_name,{
          type: "PUT",
-         url: "http://localhost:5000/motion/api/v1/magnet",
+         url: base_url+"/motion/api/v1/magnet",
          contentType: "application/json; charset=utf-8",
          data: JSON.stringify(magnetData),
          dataType: "json",
@@ -543,7 +541,7 @@ function updateMagnet (magnetData) {
 function updateAll (data) {
      jQuery.ajax({
          type: "PUT",
-         url: "http://localhost:5000/motion/api/v1/all",
+         url: base_url+"/motion/api/v1/all",
          contentType: "application/json; charset=utf-8",
          data: JSON.stringify(data),
          dataType: "json",
