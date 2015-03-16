@@ -4,7 +4,9 @@
 ****************************/
 var ajx_q_name = "theMasterQueue";
 var base_url = "http://localhost:5000"
-var updates = 0
+var updates = 20
+var x_max = 200
+var graph_clips = ["accel_clip","gyro_clip","magnet_clip","power_clip"]
 
 /* Dimensions */
 var m = [20, 80, 30, 50];
@@ -36,7 +38,12 @@ var accel_svg = d3.select("html").select("body").append("svg")
   .append("g")
     .attr("transform", "translate(" + m[3] + "," + m[0] + ")")
     .attr("class","graph")
-    .attr("id","accel_graph");
+    .attr("id","accel_graph")
+  .append("defs").append("clipPath")
+    .attr("id",graph_clips[0])
+  .append("rect")
+    .append("width",width)
+    .append("height",height);
 
 var gyro_svg = d3.select("html").select("body").append("svg")
   .attr("width", w + m[1] + m[3])
@@ -45,25 +52,40 @@ var gyro_svg = d3.select("html").select("body").append("svg")
 .append("g")  
   .attr("transform", "translate(" + m[3] + "," + m[0] + ")")
   .attr("class","graph")
-  .attr("id","gyro_graph");
+  .attr("id","gyro_graph")
+.append("defs").append("clipPath")
+  .attr("id",graph_clips[1])
+.append("rect")
+  .append("width",width)
+  .append("height",height);
 
 var magnet_svg = d3.select("html").select("body").append("svg")
     .attr("width", w + m[1] + m[3])
     .attr("height", h + m[0] + m[2])
     .attr("id","magnet_svg")
-  .append("g")
+magnet_svg.append("g");
     .attr("transform", "translate(" + m[3] + "," + m[0] + ")")
     .attr("class","graph")
     .attr("id","magnet_graph");
+magnet_svg.append("g").append("defs").append("clipPath")
+    .attr("id",graph_clips[2])
+  .append("rect")
+    .append("width",width)
+    .append("height",height);
 
 var power_svg = d3.select("html").select("body").append("svg")
     .attr("width", w + m[1] + m[3])
     .attr("height", h + m[0] + m[2])
-    .attr("id","power_svg")
-  .append("g")
+    .attr("id","power_svg");
+power_svg.append("g")
     .attr("transform", "translate(" + m[3] + "," + m[0] + ")")
     .attr("class","graph")
     .attr("id","power_graph");
+power_svg.append("g").append("defs").append("clipPath")
+    .attr("id",graph_clips[3])
+  .append("rect")
+    .append("width",width)
+    .append("height",height);
 
 /* Axes Limits */
 var y_axes_max = [500,500,500,500]
@@ -250,31 +272,27 @@ function updateGraphs(list_of_graphs)
 }
 
 
-function mockUpdateData()
+function mockUpdateData(num_updates)
 {
-  var random_data = {"x":[],"y":[],"z":[],"t":[]};
-
-  for (i = 0; i<200; i++)
-  {
-    x = (h - 350)+(i/10);
-    y = (h - 250)+(i/10);
-    z = (h - 150)+(i/10);
-    t = (h - 50)+(i/10);
-    random_data.x.push(x)
-    random_data.y.push(y)
-    random_data.z.push(z)
-    random_data.t.push(t)
-  }
-
-  td["accel"].data = random_data
-  td["gyro"].data = random_data
-  td["magnet"].data = random_data
-  td["power"].data = random_data
-
   // For each key in the td dictionary, pull out array.
   var tdValues = Object.keys(td).map(function(key){
     return td[key];
   });
+
+  for (j = 0; j<graphs.length; j++)
+  {
+    for (i = 0; i<num_updates; i++)
+    {
+      x = (h - 350)+50*Math.random();
+      y = (h - 250)+50*Math.random();
+      z = (h - 150)+50*Math.random();
+      t = (h - 50)+50*Math.random();
+      tdValues[j].data.x.push(x)
+      tdValues[j].data.y.push(y)
+      tdValues[j].data.z.push(z)
+      tdValues[j].data.t.push(t)
+    }
+  }
 
   // For each key in the td dictionary comput maxValue and sum
   tdValues.forEach(function(s) {
@@ -288,23 +306,61 @@ function mockUpdateData()
   
   /* Create each x,y,z,t,maxvalue object. This is the data
   Stored in each graph */
-  var tmp = 0
+  var count = 0
   gphs.each(function() {
     var e = d3.select(this);  // select a graph
     var cmp_obj_list = []
     //Iterate over components, accel, gyro, magnet, power
-    for(var key in tdValues[tmp].data) {
+    for(var key in tdValues[count].data) {
       var component = {}
-      component.values = tdValues[tmp].data[key];
-      component.maxValue = d3.max(tdValues[tmp].data[key], function(d) { return d; });
-      component.minValue = d3.min(tdValues[tmp].data[key], function(d) { return d; });
+      component.values = tdValues[count].data[key];
+      component.maxValue = d3.max(tdValues[count].data[key], function(d) { return d; });
+      component.minValue = d3.min(tdValues[count].data[key], function(d) { return d; });
       component.sum = d3.sum(component.values, function(d) { return d; });
-      component.descr = td[Object.keys(td)[tmp]].description +"_"+key.toString()
-      cmp_obj_list.push(component)
+      component.descr = td[Object.keys(td)[count]].description +"_"+key.toString()
+      cmp_obj_list.push([component])
     }
-    e.selectAll(".component").data(cmp_obj_list).enter().selectAll("path").data(function(d){return d})
-
+    //e.selectAll(".component").data(cmp_obj_list)
+    e.selectAll(".component").selectAll("path").data(cmp_obj_list[count])
+    
+    e.selectAll(".component").selectAll("path").each(function(d,i){
+        data = [d]
+        tick(d3.select(this),data,num_updates,count)
+    });
+  count++;
   });
+}
+
+function tick(path, data, num_updates, count) {
+  /*Dictionary of x,y,z,t data*/
+  x_domain_min = 0
+  x_domain_max = d3.max(data, function(d){return d.values.length})
+  y_domain_min = d3.min(data, function(d){return Math.min(d.minValue,0)})
+  y_domain_max = d3.max(data, function(d){return d.maxValue})
+  
+  //if(x_domain_min < x_axes_min[i] || x_domain_max> x_axes_max[i])
+  x_scales[count].domain([x_domain_min,x_domain_max]);
+  //if(y_domain_min < y_axes_min[i] || y_domain_max> y_axes_max[i])
+  y_scales[count].domain([y_domain_min, y_domain_max]);
+  y_interpolation = d3.svg.line()
+                        .interpolate("basis")
+                        .x(function(d,q) { return x_scales[count](q); })
+                        .y(function(d,q) { return y_scales[count](d); })
+  x_scale = x_scales[count]
+  
+  path.attr("d", function(d){return y_interpolation(d.values)})
+      .attr("transform", null)
+    .transition()
+      .duration(0)
+      .ease("linear")
+      .attr("transform", "translate(" + x_scale(-1*num_updates) + ",0)")
+     // .each("end", tick);
+
+  // pop the old data point off the front
+  for(i=0;i<num_updates; i++)
+  {
+    data[0].values.shift();
+  }
 }
 
 
@@ -349,7 +405,12 @@ function getPowerData(){
 initData();
 initGraphs(graphs);
 updateGraphs(graphs);
-//mockUpdateData();
+for (k = 0; k<3; k++)
+{
+  mockUpdateData(updates);
+}
+
+
 //testAjax();
 
 /*************************
