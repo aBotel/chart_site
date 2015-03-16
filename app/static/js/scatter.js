@@ -7,6 +7,7 @@ var base_url = "http://localhost:5000"
 var updates = 20
 var x_max = 200
 var graph_clips = ["accel_clip","gyro_clip","magnet_clip","power_clip"]
+var global_count = 6
 
 /* Dimensions */
 var m = [20, 80, 30, 50];
@@ -34,12 +35,12 @@ var td = {
 var accel_svg = d3.select("html").select("body").append("svg")
     .attr("width", w + m[1] + m[3])
     .attr("height", h + m[0] + m[2])
-    .attr("id","accel_svg")
-  .append("g")
+    .attr("id","accel_svg");
+accel_svg.append("g")
     .attr("transform", "translate(" + m[3] + "," + m[0] + ")")
     .attr("class","graph")
-    .attr("id","accel_graph")
-  .append("defs").append("clipPath")
+    .attr("id","accel_graph");
+accel_svg.append("g").append("defs").append("clipPath")
     .attr("id",graph_clips[0])
   .append("rect")
     .append("width",width)
@@ -48,12 +49,12 @@ var accel_svg = d3.select("html").select("body").append("svg")
 var gyro_svg = d3.select("html").select("body").append("svg")
   .attr("width", w + m[1] + m[3])
   .attr("height", h + m[0] + m[2])
-  .attr("id","gyro_svg")
-.append("g")  
+  .attr("id","gyro_svg");
+gyro_svg.append("g")  
   .attr("transform", "translate(" + m[3] + "," + m[0] + ")")
   .attr("class","graph")
-  .attr("id","gyro_graph")
-.append("defs").append("clipPath")
+  .attr("id","gyro_graph");
+gyro_svg.append("g").append("defs").append("clipPath")
   .attr("id",graph_clips[1])
 .append("rect")
   .append("width",width)
@@ -62,8 +63,8 @@ var gyro_svg = d3.select("html").select("body").append("svg")
 var magnet_svg = d3.select("html").select("body").append("svg")
     .attr("width", w + m[1] + m[3])
     .attr("height", h + m[0] + m[2])
-    .attr("id","magnet_svg")
-magnet_svg.append("g");
+    .attr("id","magnet_svg");
+magnet_svg.append("g")
     .attr("transform", "translate(" + m[3] + "," + m[0] + ")")
     .attr("class","graph")
     .attr("id","magnet_graph");
@@ -231,7 +232,7 @@ function updateGraphs(list_of_graphs)
       /*Dictionary of x,y,z,t data*/
       data = comp.data()
       x_domain_min = 0
-      x_domain_max = d3.min(data, function(d){return d.values.length})
+      x_domain_max = d3.min(data, function(d){return 200})
       y_domain_min = d3.min(data, function(d){return Math.min(d.minValue,0)})
       y_domain_max = d3.max(data, function(d){return d.maxValue})
       
@@ -334,7 +335,7 @@ function mockUpdateData(num_updates)
 function tick(path, data, num_updates, count) {
   /*Dictionary of x,y,z,t data*/
   x_domain_min = 0
-  x_domain_max = d3.max(data, function(d){return d.values.length})
+  x_domain_max = d3.max(data, function(d){return x_max})
   y_domain_min = d3.min(data, function(d){return Math.min(d.minValue,0)})
   y_domain_max = d3.max(data, function(d){return d.maxValue})
   
@@ -351,10 +352,10 @@ function tick(path, data, num_updates, count) {
   path.attr("d", function(d){return y_interpolation(d.values)})
       .attr("transform", null)
     .transition()
-      .duration(0)
+      .duration(100)
       .ease("linear")
       .attr("transform", "translate(" + x_scale(-1*num_updates) + ",0)")
-     // .each("end", tick);
+      //.each("end", call_some_more_ajax());
 
   // pop the old data point off the front
   for(i=0;i<num_updates; i++)
@@ -369,20 +370,19 @@ function testAjax(){
     mock_gyro_data = {x:5,y:6,z:7,t:8}
     mock_magnet_data = {x:9,y:10,z:11,t:12}
 
-    updateAccel(mock_accel_data)
-    updateGyro(mock_gyro_data)
-    updateMagnet(mock_magnet_data)
+    //updateAccel(mock_accel_data)
+    //updateGyro(mock_gyro_data)
+    //updateMagnet(mock_magnet_data)
 
-    for (i=0;i<100;i++) {
+    /*for (i=0;i<1;i++) {
       updateAccel(mock_accel_data)
       updateGyro(mock_gyro_data)
       updateMagnet(mock_magnet_data)
-    }
+    }*/
    
     var acc = getAccel();
     var gyro = getGyro();
     var magnet = getMagnet();
-    //var all = getAll();
 }
 
 function getAccelData(){
@@ -405,13 +405,7 @@ function getPowerData(){
 initData();
 initGraphs(graphs);
 updateGraphs(graphs);
-for (k = 0; k<3; k++)
-{
-  mockUpdateData(updates);
-}
-
-
-//testAjax();
+testAjax();
 
 /*************************
 * AJAX
@@ -510,6 +504,11 @@ function getMagnet() {
       success: function (data, status, jqXHR) {
         result = data
         console.log("Got magnetometer info: "+data.toString())
+        if (global_count > 0) {
+          global_count--
+          mockUpdateData(updates);
+          setTimeout(testAjax,1000);
+        }
       },
 
       error: function (jqXHR, status) {
@@ -543,7 +542,7 @@ function getAllData () {
 
 
 function updateAccel (accelData) {
-     $.ajaxq(ajx_q_name,{
+     $.ajax({
          type: "PUT",
          url: base_url+"/motion/api/v1/accel",
          contentType: "application/json; charset=utf-8",
@@ -562,7 +561,7 @@ function updateAccel (accelData) {
 }
 
 function updateGyro (gyroData) {
-     $.ajaxq(ajx_q_name,{
+     $.ajax({
          type: "PUT",
          url: base_url+"/motion/api/v1/gyro",
          contentType: "application/json; charset=utf-8",
@@ -581,7 +580,7 @@ function updateGyro (gyroData) {
 }
 
 function updateMagnet (magnetData) {
-     $.ajaxq(ajx_q_name,{
+     $.ajax({
          type: "PUT",
          url: base_url+"/motion/api/v1/magnet",
          contentType: "application/json; charset=utf-8",
