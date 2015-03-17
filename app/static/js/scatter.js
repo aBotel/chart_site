@@ -4,10 +4,13 @@
 ****************************/
 var ajx_q_name = "theMasterQueue";
 var base_url = "http://localhost:5000"
-var updates = 20
+var updates = 3
 var x_max = 200
 var graph_clips = ["accel_clip","gyro_clip","magnet_clip","power_clip"]
 var global_count = 6
+var ajax_delay = 4000
+var transition_delay = 2000
+var interpolation_data = [0,0,0,0];
 
 /* Dimensions */
 var m = [20, 80, 30, 50];
@@ -91,7 +94,7 @@ power_svg.append("g").append("defs").append("clipPath")
 /* Axes Limits */
 var y_axes_max = [500,500,500,500]
 var y_axes_min = [0,0,0,0]
-var x_axes_max = [200,200,200,200]
+var x_axes_max = [x_max,x_max,x_max,x_max]
 var x_axes_min = [0,0,0,0]
 
 /* Graph Variables */
@@ -99,7 +102,8 @@ var graphs = [accel_svg,gyro_svg,magnet_svg,power_svg]
 var graph_enable = [true,true,true,true]
 var x_scales = []
 var y_scales = []
-var y_interpolation = []
+var y_interpolation = [0,0,0,0];
+var transition_interpolator = [0,0,0,0];
 var x_axes = []
 var y_axes = []
 var color = d3.scale.category10();
@@ -117,7 +121,7 @@ function initData(){
   for (j = 0; j<graphs.length; j++)
   {
     tdValues[j].data = {"x":[],"y":[],"z":[],"t":[]}
-    for (i = 0; i<200; i++)
+    for (i = 0; i<x_max; i++)
     {
       x = (h - 350)+(i/5);
       y = (h - 250)+(i/5);
@@ -232,7 +236,7 @@ function updateGraphs(list_of_graphs)
       /*Dictionary of x,y,z,t data*/
       data = comp.data()
       x_domain_min = 0
-      x_domain_max = d3.min(data, function(d){return 200})
+      x_domain_max = d3.min(data, function(d){return x_max})
       y_domain_min = d3.min(data, function(d){return Math.min(d.minValue,0)})
       y_domain_max = d3.max(data, function(d){return d.maxValue})
       
@@ -326,13 +330,15 @@ function mockUpdateData(num_updates)
     
     e.selectAll(".component").selectAll("path").each(function(d,i){
         data = [d]
-        tick(d3.select(this),data,num_updates,count)
+        tick(d3.select(this),data,num_updates,count,i)
     });
   count++;
+  console.log("Transitions fired for all graphs")
   });
 }
 
-function tick(path, data, num_updates, count) {
+
+function tick(path, data, num_updates, gcount, comp_count) {
   /*Dictionary of x,y,z,t data*/
   x_domain_min = 0
   x_domain_max = d3.max(data, function(d){return x_max})
@@ -340,22 +346,26 @@ function tick(path, data, num_updates, count) {
   y_domain_max = d3.max(data, function(d){return d.maxValue})
   
   //if(x_domain_min < x_axes_min[i] || x_domain_max> x_axes_max[i])
-  x_scales[count].domain([x_domain_min,x_domain_max]);
+  x_scales[gcount].domain([x_domain_min,x_domain_max]);
   //if(y_domain_min < y_axes_min[i] || y_domain_max> y_axes_max[i])
-  y_scales[count].domain([y_domain_min, y_domain_max]);
-  y_interpolation = d3.svg.line()
+  y_scales[gcount].domain([y_domain_min, y_domain_max]);
+  y_inter = d3.svg.line()
                         .interpolate("basis")
-                        .x(function(d,q) { return x_scales[count](q); })
-                        .y(function(d,q) { return y_scales[count](d); })
-  x_scale = x_scales[count]
+                        .x(function(d,q) { return x_scales[gcount](q); })
+                        .y(function(d,q) { return y_scales[gcount](d); })
+  y_interpolation[gcount] = y_inter
+  x_scale = x_scales[gcount]
   
-  path.attr("d", function(d){return y_interpolation(d.values)})
+  interpolation_data[gcount] = data[0].values;
+  transition_interpolator[gcount] = y_inter;
+
+  path.attr("d", function(d){return y_inter(d.values)})
       .attr("transform", null)
     .transition()
-      .duration(100)
+      .duration(transition_delay)
       .ease("linear")
-      .attr("transform", "translate(" + x_scale(-1*num_updates) + ",0)")
-      //.each("end", call_some_more_ajax());
+      .attrTween('d', getSmoothInterpolation(data[0].values,gcount))
+      .attr("transform", "translate(" + x_scale(-1*num_updates) + ")")
 
   // pop the old data point off the front
   for(i=0;i<num_updates; i++)
@@ -364,6 +374,26 @@ function tick(path, data, num_updates, count) {
   }
 }
 
+function getSmoothInterpolation(data, count) {
+  return function (d, i, a, count) {
+      var interpolate = d3.scale.linear()
+          .domain([0,1])
+          .range([updates, data.length + updates]);
+
+      return function(t) {
+          var flooredX = Math.floor(interpolate(t));
+          var weight = interpolate(t) - flooredX;
+          var interpolatedLine = data.slice(0, flooredX);
+              
+          if(flooredX > 0 && flooredX < data.length) {
+              var weightedLineAverage = data[flooredX].y * weight + data[flooredX-1].y * (1-weight);
+              interpolatedLine.push({"x":interpolate(t)-1, "y":weightedLineAverage});
+              }
+      
+          return y_interpolation[count](interpolatedLine);
+          }
+      }
+  }
 
 function testAjax(){
     mock_accel_data = {x:1,y:2,z:3,t:4}
@@ -459,7 +489,7 @@ function getAccel () {
       success: function (data, status, jqXHR) {
         console.log("Getting accel info...")
         result = data
-        console.log("Got accel info: "+data.toString())
+        //console.log("Got accel info: "+data.toString())
       },
 
       error: function (jqXHR, status) {
@@ -481,7 +511,7 @@ function getGyro () {
       success: function (data, status, jqXHR) {
         console.log("Getting gyro info...")
         result = data
-        console.log("Got gyro info: "+data.toString())
+        //console.log("Got gyro info: "+data.toString())
       },
 
       error: function (jqXHR, status) {
@@ -503,11 +533,11 @@ function getMagnet() {
       async:false,
       success: function (data, status, jqXHR) {
         result = data
-        console.log("Got magnetometer info: "+data.toString())
+        //console.log("Got magnetometer info: "+data.toString())
         if (global_count > 0) {
           global_count--
           mockUpdateData(updates);
-          setTimeout(testAjax,1000);
+          setTimeout(testAjax,ajax_delay);
         }
       },
 
@@ -528,7 +558,7 @@ function getAllData () {
       async:false,
       success: function (data, status, jqXHR) {
         result = data
-        console.log("Got all_data info: "+data.toString())
+        //console.log("Got all_data info: "+data.toString())
       },
 
       error: function (jqXHR, status) {

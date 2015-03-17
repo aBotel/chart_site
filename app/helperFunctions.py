@@ -1,3 +1,5 @@
+import jsonpickle
+from collections import deque
 #############
 # Varibles
 #############
@@ -17,3 +19,9 @@ def enable_motion_api():
 def disable_motion_api():
 	accept_requests = False
 
+class DequeHandler(jsonpickle.handlers.BaseHandler):
+    def flatten(self, obj, data):
+        return list(obj),obj.maxlen
+    def restore(self,obj):
+        return deque(obj[0], maxlen=obj[1])
+jsonpickle.handlers.register(deque, DequeHandler)
